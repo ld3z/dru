@@ -14,19 +14,11 @@ RUN apt-get update && apt-get install -y \
 # Install UV directly from the official image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Copy dependency files first
-COPY pyproject.toml uv.lock ./
-
-# Install dependencies using UV sync
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project
-
-# Copy the rest of the application code
+# Copy all application files
 COPY . .
 
-# Install the project
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen
+# Install dependencies
+RUN uv pip install --system .
 
 # Create cache directory
 RUN mkdir -p cache/grid
