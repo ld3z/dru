@@ -13,6 +13,5 @@ dependencies = [
     "schedule>=1.2.2",
     "selectolax[cython]>=0.3.28",
     "tomli>=2.2.1",
-    "toml",
     "uvloop>=0.21.0",
 ]
