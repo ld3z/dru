@@ -2,7 +2,6 @@ import os
 import re
 import threading
 import time
-import toml  # Import toml to read configuration file
 
 import aiohttp
 import aiohttp.web_request
