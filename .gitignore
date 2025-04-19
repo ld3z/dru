@@ -1,4 +1,7 @@
-__pycache__/
-*.py[cod]
-cache/
-.env
+*
+
+!*.py
+!README.md
+!templates/*.html
+
+!*/

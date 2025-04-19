@@ -1,24 +1,27 @@
 import os
 import re
-import threading
-import time
+
+import toml  # Import toml to read configuration file
 
 import aiohttp
 import aiohttp.web_request
 from aiohttp import web
 from loguru import logger
 
-from cache import post_cache
+from cache import post_cache, shareid_cache
+from config import config
 from internal.grid_layout import grid_from_urls
 from internal.singleflight import Singleflight
 from scrapers import get_post
 from scrapers.share import resolve_share_id
 from templates.embed import render_embed
 
-# Hardcoded HOST for Render (must be 0.0.0.0)
-HOST = "0.0.0.0"
-# Get PORT from environment variable (Render sets this)
-PORT = int(os.environ.get("PORT", "3000"))
+config_file = '/etc/secrets/config.toml'
+config = toml.load(config_file)
+
+# Set default values if the keys are not found
+HOST = config.get("HOST", "127.0.0.1")
+PORT = config.get("PORT", 3000)
 
 
 async def home(request: aiohttp.web_request.Request):
@@ -81,7 +84,7 @@ async def embed(request: aiohttp.web_request.Request):
 
     # gallery = no caption
     if request.query.get("gallery"):
-        jinja_ctx.pop('og_description', None)
+        jinja_ctx.pop("og_description", None)
 
     return web.Response(
         body=render_embed(**jinja_ctx).encode(), content_type="text/html"
@@ -93,7 +96,7 @@ async def media_redirect(request: aiohttp.web_request.Request):
     media_id = request.match_info.get("media_id", "")
     post = await get_post(post_id)
 
-    logger.debug(f"media_redirect({post_id})")
+    # logger.debug(f"media_redirect({post_id})")
     # Return to original post if no post found
     if not post:
         raise web.HTTPFound(
@@ -136,52 +139,18 @@ async def grid(request: aiohttp.web_request.Request):
         return web.Response(body=f.read(), content_type="image/jpeg")
 
 
-# --- schedule tasks ---
-def run_continuously(interval=1):
-    """Continuously run, while executing pending jobs at each
-    elapsed time interval.
-    @return cease_continuous_run: threading. Event which can
-    be set to cease continuous run. Please note that it is
-    *intended behavior that run_continuously() does not run
-    missed jobs*. For example, if you've registered a job that
-    should run every minute and you set a continuous run
-    interval of one hour then your job won't be run 60 times
-    at each interval but only once.
-    """
-    cease_continuous_run = threading.Event()
-
-    class ScheduleThread(threading.Thread):
-        @classmethod
-        def run(cls):
-            while not cease_continuous_run.is_set():
-                schedule.run_pending()
-                time.sleep(interval)
-
-    continuous_thread = ScheduleThread()
-    continuous_thread.start()
-    return cease_continuous_run
-
-
-def remove_grid_cache(max_size: int = 10 * 1024 * 1024 * 1024):  # 10 gigs
-    current_size = 0
-    for file in os.listdir("cache/grid"):
-        current_size += os.path.getsize(f"cache/grid/{file}")
-        if current_size > max_size:
-            os.remove(f"cache/grid/{file}")
+async def init_cache():
+    await post_cache.init_cache()
+    await shareid_cache.init_cache()
 
 
 if __name__ == "__main__":
     import asyncio
 
-    import schedule
     import uvloop
 
-    # --- schedule tasks ---
-    cease_continuous_run = run_continuously(interval=10)
-    schedule.every(10).minutes.do(remove_grid_cache)
-    schedule.every(1).minutes.do(post_cache.evict)
-
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    asyncio.run(init_cache())
 
     app = web.Application()
     app.add_routes(
