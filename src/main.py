@@ -1,8 +1,6 @@
 import os
 import re
 
-import toml  # Import toml to read configuration file
-
 import aiohttp
 import aiohttp.web_request
 from aiohttp import web
@@ -16,13 +14,11 @@ from scrapers import get_post
 from scrapers.share import resolve_share_id
 from templates.embed import render_embed
 
-config_file = '/etc/secrets/config.toml'
-config = toml.load(config_file)
 
-# Set default values if the keys are not found
-HOST = config.get("HOST", "127.0.0.1")
-PORT = config.get("PORT", 3000)
-
+# Hardcoded HOST for Render (must be 0.0.0.0)
+HOST = "0.0.0.0"
+# Get PORT from environment variable (Render sets this)
+PORT = int(os.environ.get("PORT", "3000"))
 
 async def home(request: aiohttp.web_request.Request):
     return web.Response(text="Hello, world")
